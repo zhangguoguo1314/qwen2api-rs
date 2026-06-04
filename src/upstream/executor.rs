@@ -350,7 +350,9 @@ impl Executor {
             } else {
                 "auth_error"
             };
-            self.pool.mark_invalid(email, reason).await;
+            // 把原始上游錯誤訊息一併寫進 last_error；mark_invalid 對 auth_error 帶門檻，
+            // 連續失敗 N 次（預設 3，AUTH_ERROR_FAIL_THRESHOLD）才永久 valid=false。
+            self.pool.mark_invalid(email, reason, err).await;
         }
         // timeout / 其他：僅 exclude，不改帳號狀態
     }

@@ -23,6 +23,9 @@ pub struct Settings {
     // 並發 / 容災
     pub max_inflight_per_account: i64,
     pub max_retries: u32,
+    /// auth_error 連續失敗門檻：到達此值才永久標 valid=false（避免單次 401 誤殺）。
+    /// 預設 3；中間幾次仍保留 valid、繼續嘗試，由 mark_success 重置計數。
+    pub auth_error_fail_threshold: u32,
     pub account_min_interval_ms: u64,
     pub request_jitter_min_ms: u64,
     pub request_jitter_max_ms: u64,
@@ -113,6 +116,7 @@ impl Settings {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(2),
             max_retries: env_or("MAX_RETRIES", 3u32),
+            auth_error_fail_threshold: env_or("AUTH_ERROR_FAIL_THRESHOLD", 3u32),
             // 風控：同帳號兩次請求之間的強制休息（毫秒）。預設 3s，避免單帳號被打太快而封號。
             account_min_interval_ms: env_or("ACCOUNT_MIN_INTERVAL_MS", 3000u64),
             request_jitter_min_ms: env_or("REQUEST_JITTER_MIN_MS", 0u64),

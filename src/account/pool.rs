@@ -171,6 +171,8 @@ pub struct AccountPool {
     jitter_max_ms: u64,
     base_cooldown: u64,
     max_cooldown: u64,
+    /// auth_error 連續失敗門檻：到達此值才永久標 valid=false（避免單次 401/CF 攔截誤殺）。
+    auth_error_threshold: u32,
 }
 
 impl AccountPool {
@@ -203,6 +205,7 @@ impl AccountPool {
             jitter_max_ms: settings.request_jitter_max_ms,
             base_cooldown: settings.rate_limit_base_cooldown,
             max_cooldown: settings.rate_limit_max_cooldown,
+            auth_error_threshold: settings.auth_error_fail_threshold,
         };
         {
             let mut st = pool.state.lock().await;
@@ -596,15 +599,31 @@ impl AccountPool {
     }
 
     /// 標記失效。
-    pub async fn mark_invalid(&self, email: &str, reason: &str) {
+    ///
+    /// 設計（修正 13 個 auth_error 帳號的根因）：
+    /// - `err` 寫入 `last_error`（先前只設 status_code，導致管理台看不到具體原因）。
+    /// - `reason == "auth_error"` 加連續失敗門檻：未達 threshold 時保留 `valid=true`，僅累積
+    ///   `consecutive_failures`；達門檻才永久 `valid=false`。可由 `AUTH_ERROR_FAIL_THRESHOLD`
+    ///   調整（預設 3）。避免上游瞬時 401 / CF 攔截把帳號一次打死。
+    /// - 其他 reason（`pending_activation` / `banned` / 空字串等）維持立即失效語意。
+    /// - `mark_success` / `apply_verify(valid=true)` 會重置 `consecutive_failures`，正常請求
+    ///   不會累積；只有連續失敗才會達門檻。
+    pub async fn mark_invalid(&self, email: &str, reason: &str, err: &str) {
         let min_ms = self.min_interval_ms.load(Ordering::Relaxed);
+        let threshold = self.auth_error_threshold.max(1) as i64;
         let snapshot = {
             let mut st = self.state.lock().await;
             if let Some(pos) = account_pos(&st, email) {
                 let a = &mut st.accounts[pos];
-                a.valid = false;
                 a.status_code = if reason.is_empty() { "auth_error" } else { reason }.to_string();
                 a.consecutive_failures += 1;
+                if !err.is_empty() {
+                    a.last_error = err.to_string();
+                }
+                let immediate_kill = reason != "auth_error";
+                if immediate_kill || a.consecutive_failures >= threshold {
+                    a.valid = false;
+                }
                 if reason == "pending_activation" {
                     a.activation_pending = true;
                 }
@@ -778,6 +797,9 @@ mod tests {
             jitter_max_ms: 0,
             base_cooldown: 600,
             max_cooldown: 3600,
+            // 測試預設用 1，等同既有「一次失敗即標 invalid」行為，
+            // 隨機 ops 測試（random_ops_keep_index_consistent）便維持原本不變式。
+            auth_error_threshold: 1,
         };
         {
             let mut st = pool.state.try_lock().unwrap();
@@ -861,6 +883,65 @@ mod tests {
         // 再排除 y（x 也排除），應落空
         ex.insert("y".to_string());
         assert!(pool.acquire_locked(&mut st, None, &ex).is_none());
+    }
+
+    /// mark_invalid 行為（修正 13 個 auth_error 帳號的根因）：
+    /// - err 必寫入 last_error（先前 hot-path 完全沒寫）。
+    /// - reason=="auth_error" 需累積到門檻才 valid=false；其他 reason 立即失效。
+    /// - mark_success 重置 consecutive_failures，使「真死」與「瞬時錯誤」能區分。
+    #[tokio::test]
+    async fn mark_invalid_writes_last_error_and_honors_threshold() {
+        // 建一個門檻 3 的 pool：test_pool 預設 threshold=1，直接 mut 賦值即可（AccountPool 為單一 owner）。
+        let mut pool = test_pool(vec![mk("t", true, 0, 0.0, 0.0, 0.0)], true, 0, 2);
+        pool.auth_error_threshold = 3;
+
+        // 第 1 次 auth_error：last_error 落盤、failures=1、仍 valid（未達門檻）。
+        pool.mark_invalid("t", "auth_error", "upstream 401 X").await;
+        {
+            let st = pool.state.lock().await;
+            let a = &st.accounts[account_pos(&st, "t").unwrap()];
+            assert_eq!(a.last_error, "upstream 401 X", "last_error 必寫入");
+            assert_eq!(a.status_code, "auth_error");
+            assert_eq!(a.consecutive_failures, 1);
+            assert!(a.valid, "未達門檻不應立即失效");
+        }
+
+        // 第 2 次：failures=2 仍 valid。
+        pool.mark_invalid("t", "auth_error", "upstream 401 Y").await;
+        {
+            let st = pool.state.lock().await;
+            let a = &st.accounts[account_pos(&st, "t").unwrap()];
+            assert_eq!(a.consecutive_failures, 2);
+            assert!(a.valid, "第 2 次仍未達門檻");
+            assert_eq!(a.last_error, "upstream 401 Y", "last_error 覆寫為最新");
+        }
+
+        // 第 3 次：達門檻 → valid=false。
+        pool.mark_invalid("t", "auth_error", "upstream 401 Z").await;
+        {
+            let st = pool.state.lock().await;
+            let a = &st.accounts[account_pos(&st, "t").unwrap()];
+            assert_eq!(a.consecutive_failures, 3);
+            assert!(!a.valid, "達門檻應永久失效");
+        }
+
+        // mark_success 應重置 failures（驗證「真死/瞬時」可區分）。
+        pool.apply_verify("t", true, "valid", "").await;
+        {
+            let st = pool.state.lock().await;
+            let a = &st.accounts[account_pos(&st, "t").unwrap()];
+            assert_eq!(a.consecutive_failures, 0);
+            assert!(a.valid);
+        }
+
+        // 非 auth_error reason 必須立即失效（pending_activation 不該享受門檻）。
+        pool.mark_invalid("t", "pending_activation", "尚未激活").await;
+        {
+            let st = pool.state.lock().await;
+            let a = &st.accounts[account_pos(&st, "t").unwrap()];
+            assert!(!a.valid, "pending_activation 應立即失效");
+            assert!(a.activation_pending, "activation_pending 旗標必設");
+        }
     }
 
     /// release 後（min_interval=0）帳號應可再次取得；global_in_use 收支平衡。
@@ -962,7 +1043,7 @@ mod tests {
                 }
                 5 => {
                     let e = emails[rng.gen_range(0..n)].clone();
-                    pool.mark_invalid(&e, "auth_error").await;
+                    pool.mark_invalid(&e, "auth_error", "rand-test-error").await;
                 }
                 _ => {
                     // 復活，避免帳號全失效後無事可測
