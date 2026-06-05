@@ -3,7 +3,10 @@
 .env
 *.log
 .playwright-mcp/
-*.png
 /tmp
+
+# 根目錄 PNG（截圖暫存）一律不上傳；含真實帳號 email 的截圖（accounts/dashboard*）必須排除。
+# README 引用的安全截圖另放 docs/screenshots/。
+/*.png
 
 .claude/
