@@ -4,7 +4,7 @@
 
 # qwen2api-rs
 
-把通義千問（Qwen）Web 端能力轉換成 **OpenAI / Anthropic Claude / Gemini** 相容介面的自託管網關。
+A self-hosted gateway that exposes Qwen (Tongyi Qianwen) Web capabilities as **OpenAI / Anthropic Claude / Gemini** compatible APIs.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-dea584?logo=rust&logoColor=white)](https://www.rust-lang.org)
@@ -12,121 +12,127 @@
 [![tokio](https://img.shields.io/badge/tokio-1.x-3776ab)](https://tokio.rs)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ed?logo=docker&logoColor=white)](https://www.docker.com)
 
+**Language**: **English** · [繁體中文](README.zh-TW.md)
+
 </div>
 
-> **本專案是 [YuJunZhiXue/qwen2API](https://github.com/YuJunZhiXue/qwen2API)（Python + React）的 Rust 後端 + 純原生前端重寫版**，並非原作者，原始設計與協議分析歸功於上游。基準上游版本與同步流程見 [`dev/UPSTREAM.md`](dev/UPSTREAM.md)。
+> 💡 **Just want to try the service without deploying it yourself?** I run a public instance you can hit directly → **<https://x.com/i/status/2063271049199046672>**
+>
+> (This repo is for people who want to self-host. If you only want to use it, the link above is enough.)
 
-- **後端**：Rust（`axum` + `tokio` + `reqwest` + `serde`），單一靜態二進位，低記憶體、高並發。
-- **前端**：純 `HTML + CSS + JS` 三檔（`web/`），零框架、零建置、可離線。
-- **協議**：在同一個 binary 內同時提供 OpenAI / Anthropic / Gemini 三套 API 表面。
+> **This project is a Rust backend + vanilla frontend rewrite of [YuJunZhiXue/qwen2API](https://github.com/YuJunZhiXue/qwen2API) (Python + React).** I am not the original author — credit for the protocol analysis and overall design goes to upstream. See [`dev/UPSTREAM.md`](dev/UPSTREAM.md) for the tracked upstream version and sync process.
+
+- **Backend**: Rust (`axum` + `tokio` + `reqwest` + `serde`), a single static binary — low memory, high concurrency.
+- **Frontend**: Three plain `HTML + CSS + JS` files (`web/`) — zero framework, zero build step, works offline.
+- **Protocols**: OpenAI / Anthropic / Gemini API surfaces all served from the same binary.
 
 ---
 
-## 功能
+## Features
 
-- ✅ OpenAI Chat Completions（`/v1/chat/completions`）串流 + 非串流
-- ✅ OpenAI Responses（`/v1/responses`）typed SSE events
-- ✅ Anthropic Messages（`/v1/messages`、`/anthropic/v1/messages`）串流 + 非串流 + `count_tokens`
+- ✅ OpenAI Chat Completions (`/v1/chat/completions`) — streaming + non-streaming
+- ✅ OpenAI Responses (`/v1/responses`) — typed SSE events
+- ✅ Anthropic Messages (`/v1/messages`, `/anthropic/v1/messages`) — streaming + non-streaming + `count_tokens`
 - ✅ Gemini `generateContent` / `streamGenerateContent`
-- ✅ OpenAI Images（`/v1/images/generations`）— 驅動 Qwen 影像生成
-- ✅ OpenAI Embeddings（佔位，確定性向量）
-- ✅ 檔案上傳（`/v1/files`）+ 對話附件（自動阿里 OSS V4 上傳 / 小文字檔內聯）
-- ✅ 工具/函式調用：工具定義注入 prompt + 從輸出解析 `tool_call`（Qwen Web 無原生工具）
-- ✅ 思考模式（reasoning）串流，**usage 採上游真實 token 數**
-- ✅ 帳號池：4 層並發控制、最少負載選號、限流指數退避、跨帳號重試
-- ✅ chat_id 預熱池（規避上游 `/chats/new` 0.5~6s 握手；對上萬帳號有覆蓋數上限保護）
-- ✅ 管理台 WebUI：運行狀態、帳號管理、API Key、接口測試、圖片生成、系統設置
-- ✅ `/healthz`、`/readyz` 探針
+- ✅ OpenAI Images (`/v1/images/generations`) — drives Qwen image generation
+- ✅ OpenAI Embeddings (placeholder, deterministic vectors)
+- ✅ File upload (`/v1/files`) + conversation attachments (auto Aliyun OSS V4 upload / inline small text)
+- ✅ Tool / function calling: tool definitions injected into prompt + `tool_call` parsed from output (Qwen Web has no native tool support)
+- ✅ Reasoning mode streaming, **usage uses real upstream token counts**
+- ✅ Account pool: 4-layer concurrency control, least-load selection, rate-limit exponential backoff, cross-account retry
+- ✅ chat_id pre-warming pool (avoids the 0.5~6s `/chats/new` handshake; with coverage cap to protect tens of thousands of accounts)
+- ✅ Admin WebUI: runtime status, account management, API keys, endpoint testing, image generation, system settings
+- ✅ `/healthz`, `/readyz` probes
 
-## 介面預覽
+## Screenshots
 
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="docs/screenshots/stats.png" alt="統計面板：請求量、Tokens、TTFT、按模型/接口拆分"/>
-      <sub><b>數據統計</b> · 請求 / Tokens / TTFT 分桶，按模型 + 接口拆分</sub>
+      <img src="docs/screenshots/stats.png" alt="Stats panel: request volume, tokens, TTFT, broken down by model and endpoint"/>
+      <sub><b>Stats</b> · requests / tokens / TTFT buckets, split by model + endpoint</sub>
     </td>
     <td align="center" width="50%">
-      <img src="docs/screenshots/images.png" alt="圖片生成：批次提交與本地畫廊"/>
-      <sub><b>圖片生成</b> · 批次提交、比例切換、本地永久保存</sub>
+      <img src="docs/screenshots/images.png" alt="Image generation: batch submission and local gallery"/>
+      <sub><b>Image generation</b> · batch submit, aspect ratio toggle, local permanent storage</sub>
     </td>
   </tr>
   <tr>
     <td align="center" colspan="2">
-      <img src="docs/screenshots/videos.png" alt="影片生成：異步任務佇列 + 智慧跳過無 t2v 權限帳號" width="70%"/>
-      <br/><sub><b>影片生成</b> · 異步任務佇列 + 自動重試 + 智慧跳過無 t2v 權限帳號</sub>
+      <img src="docs/screenshots/videos.png" alt="Video generation: async task queue + smart skip of accounts without t2v permission" width="70%"/>
+      <br/><sub><b>Video generation</b> · async task queue + auto retry + smart skip of accounts without t2v permission</sub>
     </td>
   </tr>
 </table>
 
-## 快速開始
+## Quick start
 
-需求：Rust 1.80+（已測 1.93）。
+Requirements: Rust 1.80+ (tested up to 1.93).
 
 ```bash
-cp .env.example .env          # 設定 ADMIN_KEY、PORT 等
+cp .env.example .env          # set ADMIN_KEY, PORT, etc.
 mkdir -p data
-# 放入帳號：data/accounts.json = [{"email","token", ...}, ...]
-#   token = 在 chat.qwen.ai 登入後，localStorage 裡的 token 原始值
-#   範本見 dev/accounts.example.json
+# Add accounts: data/accounts.json = [{"email","token", ...}, ...]
+#   token = raw token value from localStorage after logging into chat.qwen.ai
+#   See dev/accounts.example.json for the template
 cargo run --release
 ```
 
-啟動後：
-- WebUI：`http://127.0.0.1:7860/`（系統設置頁貼上 `ADMIN_KEY` 或任一 API Key 作為會話金鑰）
-- API Base：`http://127.0.0.1:7860`
+After startup:
+- WebUI: `http://127.0.0.1:7860/` (paste `ADMIN_KEY` or any API key on the Settings page as the session key)
+- API Base: `http://127.0.0.1:7860`
 
-呼叫範例（OpenAI 相容）：
+Call example (OpenAI compatible):
 
 ```bash
 curl http://127.0.0.1:7860/v1/chat/completions \
-  -H "Authorization: Bearer <你的 API Key 或 ADMIN_KEY>" \
+  -H "Authorization: Bearer <your API key or ADMIN_KEY>" \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"你好"}],"stream":true}'
+  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"hello"}],"stream":true}'
 ```
 
-Anthropic 相容：
+Anthropic compatible:
 
 ```bash
 curl http://127.0.0.1:7860/v1/messages \
-  -H "x-api-key: <你的 API Key 或 ADMIN_KEY>" \
+  -H "x-api-key: <your API key or ADMIN_KEY>" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
-  -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":1024,"messages":[{"role":"user","content":"你好"}]}'
+  -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":1024,"messages":[{"role":"user","content":"hello"}]}'
 ```
 
-模型名可用任意 OpenAI / Claude / Gemini 名稱（自動映射到 Qwen，未知者回退 `DEFAULT_MODEL`），或直接用 `qwen3.7-plus`、`qwen3.7-plus-thinking` 等（`/v1/models` 可查全部）。
+The `model` field accepts any OpenAI / Claude / Gemini model name (auto-mapped to Qwen; unknown names fall back to `DEFAULT_MODEL`), or you can pass Qwen names directly such as `qwen3.7-plus`, `qwen3.7-plus-thinking`, etc. (`/v1/models` lists all of them).
 
-## 部署
+## Deployment
 
-兩種皆可（單一靜態 binary，rustls 無需系統 OpenSSL）。
+Either option works (single static binary, rustls — no system OpenSSL needed).
 
-### Docker（推薦，尤其從原 Python 版遷移者）
+### Docker (recommended, especially when migrating from the Python version)
 
-與原專案相同的 docker-compose 工作流；映像約 145MB（debian-slim 基底，比原 Python 版含 camoufox 小很多；可改 distroless/musl 再瘦身）。
+Same docker-compose workflow as the original project; image is ~145MB (debian-slim base, much smaller than the original Python version with camoufox; can be slimmed further with distroless / musl).
 
 ```bash
-# data/ 可直接沿用原版（放 accounts.json 等）
+# data/ can be reused as-is from the original version (holds accounts.json etc.)
 mkdir -p data
-vim docker-compose.yml      # 修改 ADMIN_KEY 等
+vim docker-compose.yml      # set ADMIN_KEY etc.
 docker compose up -d --build
 docker compose logs -f
 ```
 
-- 資料持久化：`./data` 掛到容器 `/app/data`。
-- 內建 `HEALTHCHECK`（打 `/healthz`）。
-- 更新：`git pull && docker compose up -d --build`。
+- Data persistence: `./data` is mounted to `/app/data` in the container.
+- Built-in `HEALTHCHECK` (hits `/healthz`).
+- Update: `git pull && docker compose up -d --build`.
 
-### Binary（最輕量，單機 / VPS）
+### Binary (lightest, single host / VPS)
 
 ```bash
-cargo build --release          # 產出 target/release/qwen2api-rs
+cargo build --release          # produces target/release/qwen2api-rs
 cp .env.example .env && vim .env
-mkdir -p data                  # 放 accounts.json
+mkdir -p data                  # put accounts.json here
 WEB_DIR=web ./target/release/qwen2api-rs
 ```
 
-建議用 systemd 常駐（`/etc/systemd/system/qwen2api-rs.service`）：
+Recommended to run under systemd (`/etc/systemd/system/qwen2api-rs.service`):
 
 ```ini
 [Unit]
@@ -143,68 +149,68 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-> **Docker vs Binary 取捨**：Docker = 可重現、隔離、跨發行版可攜、與原版同流程、易更新 / 重啟；Binary = 啟動最快、佔用最小、無需 docker，但需自行用 systemd 常駐且跨機需注意 glibc 版本（或用 musl 靜態編譯）。
+> **Docker vs Binary trade-off**: Docker = reproducible, isolated, portable across distros, same workflow as the original, easy update / restart. Binary = fastest startup, smallest footprint, no docker needed — but you have to wire systemd yourself and watch out for glibc versions across hosts (or build static with musl).
 
-## 環境變數
+## Environment variables
 
-完整清單見 [`.env.example`](.env.example)（含風控 / 帳號池 / 上下文等 20+ 項）。變數名與原 Python 版相容，可直接指向同一份 `data/`。
+Full list in [`.env.example`](.env.example) (20+ entries covering rate-limit avoidance / account pool / context handling). Variable names are compatible with the original Python version, so you can point it at the same `data/`.
 
-| 變數 | 用途 | 預設 |
+| Variable | Purpose | Default |
 |---|---|---|
-| `PORT` | 服務埠 | `7860` |
-| `ADMIN_KEY` | 管理台金鑰 | `change-me-now` |
-| `MAX_INFLIGHT_PER_ACCOUNT` | 每帳號同時在途請求數 | `2` |
-| `MAX_RETRIES` | 跨帳號重試次數 | `3` |
-| `ACCOUNT_MIN_INTERVAL_MS` | 同帳號最小請求間隔（風控） | `3000` |
-| `CHAT_ID_PREWARM_TARGET_PER_ACCOUNT` | chat_id 預熱池每帳號目標數 | `5` |
-| `DEFAULT_MODEL` | 未知下游模型回退 | `qwen3.7-plus` |
-| `DATA_DIR` | 資料目錄 | `./data` |
+| `PORT` | Service port | `7860` |
+| `ADMIN_KEY` | Admin panel key | `change-me-now` |
+| `MAX_INFLIGHT_PER_ACCOUNT` | Concurrent in-flight requests per account | `2` |
+| `MAX_RETRIES` | Cross-account retry count | `3` |
+| `ACCOUNT_MIN_INTERVAL_MS` | Min interval between same-account requests (rate-limit avoidance) | `3000` |
+| `CHAT_ID_PREWARM_TARGET_PER_ACCOUNT` | Pre-warm pool target chat_ids per account | `5` |
+| `DEFAULT_MODEL` | Fallback for unknown downstream models | `qwen3.7-plus` |
+| `DATA_DIR` | Data directory | `./data` |
 
-## 認證
+## Authentication
 
-- 下游請求：`Authorization: Bearer <key>`、`x-api-key`、或 `?key=`。
-- 若 `data/api_keys.json` 有設定 key，則必須使用 `ADMIN_KEY` / 已建立的 key；否則放行任意 key。
-- 管理台 `/api/admin/*`：`Bearer` 須等於 `ADMIN_KEY` 或已建立的 key。
+- Downstream requests: `Authorization: Bearer <key>`, `x-api-key`, or `?key=`.
+- If `data/api_keys.json` has keys configured, requests must use `ADMIN_KEY` / a created key; otherwise any key is allowed.
+- Admin endpoints `/api/admin/*`: `Bearer` must equal `ADMIN_KEY` or a created key.
 
-## 架構
+## Architecture
 
-技術棧與 Python→Rust 模組對應見 [`dev/ARCHITECTURE.md`](dev/ARCHITECTURE.md)；實測捕捉的上游協議（含 SSE 格式）見 [`dev/PROTOCOL.md`](dev/PROTOCOL.md)。
+Tech stack and Python→Rust module mapping in [`dev/ARCHITECTURE.md`](dev/ARCHITECTURE.md); the captured upstream protocol (including SSE format) in [`dev/PROTOCOL.md`](dev/PROTOCOL.md).
 
 ```
 src/
-  main.rs            入口 / 路由
+  main.rs            entry / routing
   config.rs state.rs db.rs error.rs util.rs auth.rs
-  account/           帳號池（account.rs / pool.rs）
-  upstream/          上游傳輸（client / payload / sse / executor / chat_id_pool）
-  request/           標準請求構建（model_modes / prompt_builder / client_profiles / model_catalog）
-  toolcall/          工具調用（注入 + 解析 + 名稱混淆）
-  execution/         編排 + 串流翻譯（translator / presenter / formatters）
-  context/           附件 / OSS V4 上傳 / 本地檔案庫
-  api/               各協議端點（openai / anthropic / gemini / responses / images / videos / files / embeddings / admin / probes）
-  stats.rs           SQLite 統計子系統
-  media.rs           媒體任務佇列（圖片 / 影片）
-web/                 純前端三檔（index.html / app.js / style.css）
-dev/                 開發筆記（上游版本追蹤、架構、協議捕捉、部署）
+  account/           account pool (account.rs / pool.rs)
+  upstream/          upstream transport (client / payload / sse / executor / chat_id_pool)
+  request/           standard request building (model_modes / prompt_builder / client_profiles / model_catalog)
+  toolcall/          tool calling (inject + parse + name obfuscation)
+  execution/         orchestration + stream translation (translator / presenter / formatters)
+  context/           attachments / OSS V4 upload / local file store
+  api/               per-protocol endpoints (openai / anthropic / gemini / responses / images / videos / files / embeddings / admin / probes)
+  stats.rs           SQLite stats subsystem
+  media.rs           media task queue (images / videos)
+web/                 plain frontend (index.html / app.js / style.css)
+dev/                 developer notes (upstream tracking, architecture, protocol captures, deployment)
 ```
 
-## 與原專案 ([YuJunZhiXue/qwen2API](https://github.com/YuJunZhiXue/qwen2API)) 的刻意差異
+## Intentional differences from the original ([YuJunZhiXue/qwen2API](https://github.com/YuJunZhiXue/qwen2API))
 
-1. **移除瀏覽器自動註冊**（camoufox / Playwright + 臨時郵箱）→ 僅手動貼 token；額外提供 `chat.qwen.ai` 純 HTTP signin + 自動 refresh worker。
-2. **usage 改用上游真實 token 數**（原版用字元數估算）。
-3. **預設旗艦模型**更新為 `qwen3.7-plus`。
-4. **工具調用**採單一穩定文字格式（`<tool_call>{json}</tool_call>`）注入 + 解析（brace-balanced，無 regex 失誤）。
-5. **媒體子系統**：圖片 / 影片改為非同步任務佇列（SQLite 持久化）+ 自動重試 + 智慧跳過無 t2v 權限帳號。
-6. **觀測**：新增 `stats.rs` 統計面板（請求量 / Tokens / TTFT / 按模型 + 接口拆分）。
+1. **Removed browser-based auto-registration** (camoufox / Playwright + temp mail) → manual token paste only; additionally provides pure HTTP `chat.qwen.ai` signin + auto refresh worker.
+2. **`usage` now uses real upstream token counts** (the original estimated by character count).
+3. **Default flagship model** updated to `qwen3.7-plus`.
+4. **Tool calling** uses a single stable text format (`<tool_call>{json}</tool_call>`) for injection + parsing (brace-balanced, no regex pitfalls).
+5. **Media subsystem**: images / videos refactored into an async task queue (SQLite-persisted) + auto retry + smart skip of accounts without t2v permission.
+6. **Observability**: new `stats.rs` panel (request volume / tokens / TTFT / per-model + per-endpoint breakdown).
 
-詳見 [`dev/UPSTREAM.md`](dev/UPSTREAM.md)。
+Details in [`dev/UPSTREAM.md`](dev/UPSTREAM.md).
 
-## 致謝
+## Credits
 
-- 上游原專案 [**YuJunZhiXue/qwen2API**](https://github.com/YuJunZhiXue/qwen2API) — 原始協議分析、多協議轉換思路、整套帳號池 / 風控設計皆源自此。
-- Qwen / 通義千問 by 阿里巴巴 — 模型與 web 介面。
+- Upstream original project [**YuJunZhiXue/qwen2API**](https://github.com/YuJunZhiXue/qwen2API) — the protocol analysis, multi-protocol translation approach, and the whole account pool / rate-limit design all originate from there.
+- Qwen / Tongyi Qianwen by Alibaba — model and web interface.
 
-## 授權
+## License
 
 [MIT License](LICENSE)
 
-> 僅供學習與自託管研究。Qwen 為阿里巴巴商標，使用需遵守其服務條款；本專案不保證上游 web 介面行為穩定。
+> For learning and self-hosting research only. Qwen is a trademark of Alibaba; usage must comply with their Terms of Service. This project makes no guarantee about the stability of the upstream web interface behavior.
