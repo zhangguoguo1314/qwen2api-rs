@@ -9,7 +9,7 @@ services:
       # 帳號/金鑰/上傳檔案等持久化資料；可直接沿用原 Python 版的 data/ 內容
       - ./data:/app/data
     environment:
-      ADMIN_KEY: "tistzach"        # 管理台金鑰
+      ADMIN_KEY: "admin-key"        # 管理台金鑰
       PORT: "7860"
       LOG_LEVEL: "info"
       MAX_INFLIGHT_PER_ACCOUNT: "2"
