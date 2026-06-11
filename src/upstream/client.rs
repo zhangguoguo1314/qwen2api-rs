@@ -90,6 +90,7 @@ impl QwenClient {
             .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
             .header("Referer", "https://chat.qwen.ai/")
             .header("Origin", "https://chat.qwen.ai")
+            .header("x-request-id", uuid::Uuid::new_v4().to_string())
     }
 
     /// chat.qwen.ai 純 HTTP 重登（取代過期 / 即將過期的 token）。
@@ -117,6 +118,7 @@ impl QwenClient {
             .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
             .header("Referer", "https://chat.qwen.ai/auth")
             .header("Origin", "https://chat.qwen.ai")
+            .header("x-request-id", uuid::Uuid::new_v4().to_string())
             .timeout(Duration::from_secs(20))
             .json(&body)
             .send()
