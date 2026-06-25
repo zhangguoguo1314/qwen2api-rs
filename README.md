@@ -151,6 +151,18 @@ WantedBy=multi-user.target
 
 > **Docker vs Binary trade-off**: Docker = reproducible, isolated, portable across distros, same workflow as the original, easy update / restart. Binary = fastest startup, smallest footprint, no docker needed — but you have to wire systemd yourself and watch out for glibc versions across hosts (or build static with musl).
 
+### HuggingFace Spaces
+
+可直接从 GitHub 推送到 HuggingFace Spaces 部署。项目已包含 HuggingFace 所需的 Dockerfile 和 `huggingface_README.md`。
+
+**步骤：**
+
+1. 在 HuggingFace 创建新的 Docker Space
+2. 推送此仓库到 Space：`git remote add hf https://huggingface.co/<your-username>/<space-name>.git && git push hf main`
+3. 将 `huggingface_README.md` 重命名为 `README.md`（或手动复制内容到 Space 的 README.md）
+4. 在 Space Settings 中设置 `ADMIN_KEY` 作为 Secret
+5. 等待构建完成后即可使用
+
 ## Environment variables
 
 Full list in [`.env.example`](.env.example) (20+ entries covering rate-limit avoidance / account pool / context handling). Variable names are compatible with the original Python version, so you can point it at the same `data/`.
